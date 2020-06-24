@@ -27,41 +27,42 @@ fn handle_client(stream: TcpStream) {
 
 fn handle_client_(stream: TcpStream) -> CatchAll<()> {
     let mut stream = BufReader::new(stream);
-    let mut len = String::new();
     let mut data_type = String::new();
     let mut name = String::new();
 
     // 1st msg is the name of the file/dir
     stream.read_line(&mut name)?;
 
-    // 2nd msg is the data type (archive or not)
+    // 2nd msg is the  the data type (archive or not)
     stream.read_line(&mut data_type)?;
 
-    // 3nd msg is the len of the data
-    stream.read_line(&mut len)?;
-
-    let len: usize = len.trim().parse()?;
-
-    let mut buffer = vec![0; len];
+    let mut buffer = [0; 1000];
+    let mut out = std::fs::File::create(&name.trim())?;
 
     // read data
-    let mut i = 0;
     loop {
-        match stream.read(&mut buffer[i..]) {
+        match stream.read(&mut buffer) {
             Ok(0) => break,
             Ok(n) => {
-                i += n;
+                out.write_all(&buffer[..n])?;
             }
             Err(e) => panic!(e),
         }
     }
 
+    // close file
+    drop(out);
+
     if data_type.trim() == "a" {
-        let mut ar = tar::Archive::new(buffer.as_slice());
-        ar.unpack(name.trim())?;
-    } else {
-        let mut out = std::fs::File::create(&name.trim())?;
-        out.write_all(&buffer)?;
+        let mut ar = tar::Archive::new(std::fs::File::open(&name.trim())?);
+        ar.unpack(format!("{}_unpacked", name.trim()))?;
+
+        // close archive and remove it
+        drop(ar);
+        std::fs::remove_file(&name.trim())?;
+
+        // rename the directory to the original name
+        std::fs::rename(format!("{}_unpacked", name.trim()), name.trim())?;
     }
 
     Ok(())

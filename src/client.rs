@@ -19,16 +19,32 @@ fn main() -> std::io::Result<()> {
         writeln!(stream, "f")?;
     }
 
-    writeln!(stream, "{}", data.len)?;
+    let mut buffer = [0; 1000];
 
-    stream.write_all(&data.data)?;
+    let mut file = std::fs::File::open(data.file_path)?;
+
+    loop {
+        match file.read(&mut buffer) {
+            Ok(0) => break,
+            Ok(n) => {
+                stream.write_all(&buffer[..n])?;
+            }
+            Err(e) => panic!(e),
+        }
+    }
+
+    // clean up
+    if data.archive {
+        std::fs::remove_file(format!("{}.tar", data.name))?;
+    }
+
+    //    stream.write_all(&data.file_path)?;
 
     Ok(())
 } // the stream is closed here
 
 struct Data {
-    len: usize,
-    data: Vec<u8>,
+    file_path: std::path::PathBuf,
     archive: bool,
     name: String,
 }
@@ -42,25 +58,21 @@ fn prepare_data(path: &str) -> CatchAll<Data> {
         .unwrap_or_else(|| "sylan".to_string());
 
     if path.is_dir() {
-        let tmp = std::env::temp_dir();
-        let archive_path = tmp.join(&name);
+        let archive_name = format!("{}.tar", name);
+        let archive_path = std::path::Path::new(&archive_name);
         let archive_file = std::fs::File::create(&archive_path)?;
         let mut archive = tar::Builder::new(archive_file);
         archive.append_dir_all(".", &path)?;
         archive.finish()?;
 
-        let file = std::fs::read(&archive_path)?;
         Ok(Data {
-            len: file.len(),
-            data: file,
+            file_path: archive_path.to_path_buf(),
             archive: true,
             name,
         })
     } else {
-        let file = std::fs::read(path)?;
         Ok(Data {
-            len: file.len(),
-            data: file,
+            file_path: path.to_path_buf(),
             archive: false,
             name,
         })
