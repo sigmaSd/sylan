@@ -109,6 +109,7 @@ jobs:
       shell: bash
       run: |
         staging="sylan-${{ env.RELEASE_VERSION }}-${{ matrix.target }}"
+        mkdir -p "$staging"
 
         if [ "${{ matrix.os }}" = "windows-2019" ]; then
           cp "target/release/sylan_server.exe" "$staging/"
