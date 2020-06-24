@@ -6,7 +6,8 @@ use std::net::TcpListener;
 type CatchAll<T> = Result<T, Box<dyn std::error::Error>>;
 
 fn main() -> std::io::Result<()> {
-    let listener = TcpListener::bind("127.0.0.1:8080")?;
+    let port = std::env::args().nth(1).expect("no port specefied");
+    let listener = TcpListener::bind(format!("0.0.0.0:{}", port))?;
     for stream in listener.incoming() {
         match stream {
             Ok(stream) => {

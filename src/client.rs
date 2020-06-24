@@ -2,9 +2,14 @@ use std::io::prelude::*;
 use std::net::TcpStream;
 
 fn main() -> std::io::Result<()> {
-    let mut stream = TcpStream::connect("127.0.0.1:8080")?;
+    let mut args = std::env::args().skip(1);
+    let ip = args.next().expect("Ip was not specified");
+    let port = args.next().expect("Port was not specified");
+    let path = args.next().expect("No target specified");
 
-    let data = prepare_data().expect("prepare_data failed");
+    let mut stream = TcpStream::connect(format!("{}:{}", ip, port))?;
+
+    let data = prepare_data(&path).expect("prepare_data failed");
 
     writeln!(stream, "{}", data.name)?;
 
@@ -30,8 +35,7 @@ struct Data {
 
 type CatchAll<T> = Result<T, Box<dyn std::error::Error>>;
 
-fn prepare_data() -> CatchAll<Data> {
-    let path = std::env::args().nth(1).expect("No target specified");
+fn prepare_data(path: &str) -> CatchAll<Data> {
     let path = std::path::Path::new(&path);
 
     let name = || -> Option<String> { Some(path.file_name()?.to_str()?.to_string()) }()
